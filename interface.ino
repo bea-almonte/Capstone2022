@@ -7,6 +7,8 @@
 #define RXp2 17
 #define TXp2 16
 
+void SendTemp(float currentTemp);
+
 //KEYPAD Setup
 //ground on keyoard is pin with 1 on it...
 #define sel 18 //conect select key to pin 13
@@ -29,8 +31,6 @@ void decISR();
 #define ONE_WIRE_BUS 4                // Data wire is conntec to the Arduino digital pin 4
 OneWire oneWire(ONE_WIRE_BUS);        // Setup a oneWire instance to communicate with any OneWire devices
 DallasTemperature sensors(&oneWire);  // Pass our oneWire reference to Dallas Temperature sensor 
-char sensorPrintoutC[6];              // creates CHAR array for Celcius to print to screen
-char sensorPrintoutF[6];              // creates CHAR array for Fahrenheit to print to screen
 
 //Get temperatures C
 float temperatureC0;
@@ -48,7 +48,7 @@ extern uint8_t SevenSegNumFont[];     // Declare which fonts we will be using
 void printHeader();
 void CheckRange(float averageTempC);
 void DisplayCurrentTemps(int setTemp, float sensorVal);
-
+bool InRange(float averageTempC);
 //****RTC Pin Set****//
 DS3231  rtc(20, 21);                  //Define SDA and SCL pin here
 
@@ -64,12 +64,9 @@ void setup()
 {
   
   // KEYPAD SETUP
-    // KEYPAD
-  
   pinMode(sel, INPUT_PULLUP); //set pin as input
   pinMode(inc, INPUT_PULLUP); //set pin as input
   pinMode(dec, INPUT_PULLUP); //set pin as input
-  
   attachInterrupt(digitalPinToInterrupt(sel), selISR, HIGH); // set
   attachInterrupt(digitalPinToInterrupt(inc), incISR, HIGH); // inc
   attachInterrupt(digitalPinToInterrupt(dec), decISR, HIGH); // dec
@@ -80,6 +77,7 @@ void setup()
   Serial.begin(115200);               // Set baud rate for communication RTC
   rtc.begin();                        // Initiate RTC module
   Serial.begin(9600);                 // Starts Serial Comm 1
+  Serial2.begin(9600); // CONNECT W ESP
   sensors.begin();                    //Start the Sensors  
 // Setup the LCD
   myGLCD.InitLCD();
@@ -95,14 +93,13 @@ void setup()
   pinMode(Relay5,OUTPUT);
   pinMode(Relay6,OUTPUT);
   //Setup the Relays;
-    digitalWrite(Relay1, HIGH);
-    digitalWrite(Relay2, HIGH);
-    digitalWrite(Relay3, HIGH);
-    digitalWrite(Relay4, HIGH);
-    digitalWrite(Relay5, HIGH);
-    digitalWrite(Relay6, HIGH);
- Serial.println(myGLCD.getDisplayXSize());
-  Serial.println(myGLCD.getDisplayYSize());
+  digitalWrite(Relay1, HIGH);
+  digitalWrite(Relay2, HIGH);
+  digitalWrite(Relay3, HIGH);
+  digitalWrite(Relay4, HIGH);
+  digitalWrite(Relay5, HIGH);
+  digitalWrite(Relay6, HIGH);
+
 }
 
 void loop()
@@ -129,7 +126,7 @@ void loop()
     DisplayCurrentTemps(setTemp, averageTempC);
     DisplayBothTemps();
   }
-  
+  SendTemp(averageTempC);
   CheckRange(averageTempC);
 
  // RELAYS
@@ -153,7 +150,7 @@ void loop()
     digitalWrite(Relay4,HIGH);     // THIS TURNS ON THE POWER TO THE COOL SETTING for 2/4
   }
 
-
+  delay(1500);
 }
 
 void PrintChangeTemp() {
@@ -217,7 +214,7 @@ void PrintHeader() {
 
 void CheckRange(float averageTempC) {
   myGLCD.setFont(Ubuntu);
-   if(averageTempC <= setTemp && averageTempC > setTemp -4) {
+   if(InRange(averageTempC)) {
       myGLCD.setColor(VGA_GREEN);
       myGLCD.setBackColor(VGA_WHITE);
       myGLCD.print("Good Operating Range", CENTER, 270);
@@ -246,6 +243,31 @@ void DisplayBothTemps() {
   myGLCD.print("Sensor High(1):", LEFT, 210);
   myGLCD.printNumF(test1,2, 245, 210);
 }
+bool InRange(float averageTempC) {
+  if (averageTempC <= setTemp && averageTempC > (setTemp -4)) {
+      return true;
+  } else return false;
+     
+}
+
+
+
+void SendTemp(float currentTemp) {
+  String sendString = "\'"+ String(rtc.getDateStr(FORMAT_MIDDLEENDIAN,FORMAT_SHORT,'-'))+" "+ String(rtc.getTimeStr(FORMAT_LONG))+"\',\'"+String(currentTemp)+"\'";
+  if (InRange(currentTemp)) {
+    sendString += ",\'1\'";
+  } else {
+    sendString += ",\'0\'";
+  }
+  Serial2.println(sendString); //need to chamge to string w av temp, date and cooler ID (1)
+
+  if (Serial2.available()) {
+    Serial.println("Data NOT Sent");
+  } else {
+    Serial.print("Data Sent:");
+    Serial.println(currentTemp);
+  }
+}
 
 // KEYPAD SELECT
 // ISRs -- only count if signal is long enough
@@ -255,10 +277,6 @@ void selISR() {
       myGLCD.setColor(VGA_BLACK);
       myGLCD.fillRect(0, 80, 500, 230);
       selectOn = !selectOn;
-      if (!selectOn) {
-        Serial.print("New Temp: ");
-        Serial.println(setTemp);
-      }
   }
   pressed = trigger;}
   
@@ -271,4 +289,3 @@ void decISR() {
   trigger = millis();
   if (((trigger - pressed) > 250) && selectOn) setTemp-- ;
   pressed = trigger;}
-//
