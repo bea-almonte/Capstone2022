@@ -52,14 +52,13 @@ bool InRange(float averageTempC);
 //****RTC Pin Set****//
 DS3231  rtc(20, 21);                  //Define SDA and SCL pin here
 
-int Relay1 = 2;                       //
-int Relay2 = 3;                       //
-int Relay3 = 5;                       //
-int Relay4 = 6;                       //
-int Relay5 = 7;                       //
-int Relay6 = 8;                       //
-int selPush = 0;
-float setTemp = 25;                //user defined variable default is 3 degrees celcius
+int Relay1 = 5;                       //
+int Relay2 = 6;                       //
+int Relay3 = 7;                       //
+int Relay4 = 8;                       //
+int Relay5 = 9;                       //
+int Relay6 = 10;                       //
+float setTemp = 25;                //user defined variable default is 25 degrees celcius
 void setup()
 {
   
@@ -150,7 +149,7 @@ void loop()
     digitalWrite(Relay4,HIGH);     // THIS TURNS ON THE POWER TO THE COOL SETTING for 2/4
   }
 
-  delay(1500);
+  delay(5000);
 }
 
 void PrintChangeTemp() {
@@ -253,20 +252,20 @@ bool InRange(float averageTempC) {
 
 
 void SendTemp(float currentTemp) {
-  String sendString = "\'"+ String(rtc.getDateStr(FORMAT_MIDDLEENDIAN,FORMAT_SHORT,'-'))+" "+ String(rtc.getTimeStr(FORMAT_LONG))+"\',\'"+String(currentTemp)+"\'";
+  String sendString = "\'1\'\'"+ String(rtc.getDateStr(FORMAT_MIDDLEENDIAN,FORMAT_SHORT,'-'))+" "+ String(rtc.getTimeStr(FORMAT_LONG))+"\',\'"+String(currentTemp)+"\'";
   if (InRange(currentTemp)) {
     sendString += ",\'1\'";
   } else {
     sendString += ",\'0\'";
   }
   Serial2.println(sendString); //need to chamge to string w av temp, date and cooler ID (1)
-
+  /*
   if (Serial2.available()) {
     Serial.println("Data NOT Sent");
   } else {
     Serial.print("Data Sent:");
     Serial.println(currentTemp);
-  }
+  }*/
 }
 
 // KEYPAD SELECT
