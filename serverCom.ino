@@ -34,26 +34,35 @@ bool ConnectToNetwork(const char * ssid, const char * password); // CONNECT TO W
 bool WifiConnected(); // WIFI CHECK
 bool SendServer(String serverSend, const char * mqttTopic); // ATTEMPT TO SEND TO SERVER
 void callback(char *topic, byte *payload, unsigned int length); // MQTT CALLBACK
-bool MQTTConnect(char * mqttBroker, char * mqttTopic); // CONNECT TO MQTT
+bool MQTTConnect(const char * mqttBroker, const int mqttPort); // CONNECT TO MQTT
 
 void InitializeSD(); // Initilize SD card
-void WriteSD(String lineString); // ATTEMPT TO WRITE TO SD CARD
-bool ReadSD(String &serverSend); // ATTEMPT TO READ FROM SD CARD
+void WriteSD(String lineString, String filename); // ATTEMPT TO WRITE TO SD CARD
+bool ReadSD(String filename); // ATTEMPT TO READ FROM SD CARD
 
+String arduinoString;
 
+int lineCounter = 0;
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
   Serial2.begin(9600,SERIAL_8N1, RXp2,TXp2);
 
   // SETUP WIFI
-  ConnectToNetwork(ssid,password);
+  //ConnectToNetwork(ssid,password);
   // CONNECT TO SERVER
-  MQTTConnect(mqtt_broker, mqtt_port);
+  //MQTTConnect(mqtt_broker, mqtt_port);
+  // INITIALIZE SD
+  InitializeSD();
+  ReadSD("/test1.txt");
 }
 
 void loop() {
+/*
   SendServer(readUART(),mqtt_topic);
+  if (lineCounter == 10){
+    ReadSD("/test1.txt");
+  }*/
 }
 
 // CONNECT TO NETWORK
@@ -94,8 +103,12 @@ String readUART() {
         arduinoString = Serial2.readString();
         Serial.print("Arduino: ");
         Serial.println(arduinoString);
+        if (arduinoString.length() > 30) {
+          WriteSD(arduinoString,"/test1.txt");
+        } else {
+          Serial.println("Invalid String Input");
+        }
     }
-
     return arduinoString;
 }
 
@@ -168,6 +181,7 @@ void WriteSD(String lineString, String fileName) {
         Serial.print("Saving: ");
         Serial.println(lineString);
         dataFile.print(lineString);
+        lineCounter++;
         dataFile.close();
     } else {
         Serial.print("Can't Append: "); 
@@ -179,7 +193,32 @@ void WriteSD(String lineString, String fileName) {
 }
 
 // ATTEMPT TO READ FROM SD CARD
-bool ReadSD(String &serverSend);
+bool ReadSD(String filename) {
+   File dataFile = SD.open(filename,FILE_READ); // OPENS AND APPENDS TO THE FILE
+   String fileInput;
+   while (dataFile.available()) {
+      fileInput = "";
+      while (dataFile.peek() != '\n') {
+          if (dataFile.peek() > 31) {
+            fileInput += char(dataFile.read());
+            
+          } else {
+            dataFile.read();
+          }
+          
+      }
+      if (dataFile.peek() == '\n')
+        dataFile.read();
+      //Serial.println();
+      if (fileInput.length() > 30 && fileInput.length() < 50) {
+        SendServer(fileInput, mqtt_topic);
+        Serial.print("Read and Sent: ");
+        Serial.println(fileInput);
+      }
+      
+   }
+
+}
 
 // ATTEMPT TO SEND TO SERVER
 bool SendServer(String serverSend, const char * mqttTopic) {
