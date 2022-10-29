@@ -18,7 +18,7 @@ const char* password = "stardewv";
 
 // MQTT BROKER
 const char *mqtt_broker = "thermostore.info";
-const char *mqtt_topic = "coolerTest"; // espCooler
+const char *mqtt_topic = "espCooler"; // espCooler
 // const char *mqtt_username = "bea";
 // const char *mqtt_password = "almonte";
 const int mqtt_port = 1883;
@@ -42,27 +42,27 @@ bool ReadSD(String filename); // ATTEMPT TO READ FROM SD CARD
 
 String arduinoString;
 
-int lineCounter = 0;
+int linecount = 0;
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
   Serial2.begin(9600,SERIAL_8N1, RXp2,TXp2);
 
   // SETUP WIFI
-  //ConnectToNetwork(ssid,password);
+  ConnectToNetwork(ssid,password);
   // CONNECT TO SERVER
-  //MQTTConnect(mqtt_broker, mqtt_port);
+  MQTTConnect(mqtt_broker, mqtt_port);
   // INITIALIZE SD
   InitializeSD();
-  ReadSD("/test1.txt");
+  //ReadSD("/test2.txt");
 }
 
 void loop() {
-/*
-  SendServer(readUART(),mqtt_topic);
-  if (lineCounter == 10){
-    ReadSD("/test1.txt");
-  }*/
+
+  readUART();
+  if (linecount == 5){
+    ReadSD("/test3.txt");
+  }
 }
 
 // CONNECT TO NETWORK
@@ -102,9 +102,10 @@ String readUART() {
     if (Serial2.available()) {
         arduinoString = Serial2.readString();
         Serial.print("Arduino: ");
-        Serial.println(arduinoString);
-        if (arduinoString.length() > 30) {
-          WriteSD(arduinoString,"/test1.txt");
+        Serial.print(arduinoString);
+        if (arduinoString.length() > 30 &&arduinoString.length() < 50) {
+          linecount++;
+          WriteSD(arduinoString,"/test3.txt");
         } else {
           Serial.println("Invalid String Input");
         }
@@ -179,9 +180,9 @@ void WriteSD(String lineString, String fileName) {
         Serial.print("Opened file: ");
         Serial.println(fileName);
         Serial.print("Saving: ");
-        Serial.println(lineString);
+        Serial.print(lineString);
         dataFile.print(lineString);
-        lineCounter++;
+        
         dataFile.close();
     } else {
         Serial.print("Can't Append: "); 
@@ -196,6 +197,7 @@ void WriteSD(String lineString, String fileName) {
 bool ReadSD(String filename) {
    File dataFile = SD.open(filename,FILE_READ); // OPENS AND APPENDS TO THE FILE
    String fileInput;
+   int lineSentCount = 0;
    while (dataFile.available()) {
       fileInput = "";
       while (dataFile.peek() != '\n') {
@@ -211,19 +213,29 @@ bool ReadSD(String filename) {
         dataFile.read();
       //Serial.println();
       if (fileInput.length() > 30 && fileInput.length() < 50) {
+        lineSentCount++;
         SendServer(fileInput, mqtt_topic);
         Serial.print("Read and Sent: ");
         Serial.println(fileInput);
       }
       
+      
    }
+   dataFile.close();
+   // delete file after sending
+   dataFile = SD.open(filename,FILE_WRITE);
+   if (dataFile.available()) {
+      dataFile.print("");
+   }
+   linecount = 0;
+   dataFile.close();
+   
 
 }
 
 // ATTEMPT TO SEND TO SERVER
 bool SendServer(String serverSend, const char * mqttTopic) {
     const char * mqttString = serverSend.c_str();
-    
     if (client.publish(mqttTopic,mqttString)) {
         return true;
     } else return false;
