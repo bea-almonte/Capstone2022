@@ -12,6 +12,9 @@
 #define RXp2 35
 #define TXp2 13
 
+// LID PIN
+#define lid 15
+
 // WIFI CONNECTION
 const char* ssid     = "teeth";
 const char* password = "stardewv";
@@ -40,10 +43,20 @@ void InitializeSD(); // Initilize SD card
 void WriteSD(String lineString, String filename); // ATTEMPT TO WRITE TO SD CARD
 bool ReadSD(String filename); // ATTEMPT TO READ FROM SD CARD
 
+void lidISR();
+
+bool lidOpen;
 String arduinoString;
 
 int linecount = 0;
 void setup() {
+  // LID INTERRUPT SETUP
+  /*
+  pinMode(lid, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(lid),*/
+  // LID PIN SETUP
+  pinMode(lid, INPUT);
+  
   // put your setup code here, to run once:
   Serial.begin(9600);
   Serial2.begin(9600,SERIAL_8N1, RXp2,TXp2);
@@ -60,7 +73,7 @@ void setup() {
 void loop() {
 
   readUART();
-  if (linecount == 5){
+  if (linecount == 3){
     ReadSD("/test3.txt");
   }
 }
@@ -176,6 +189,14 @@ void InitializeSD() {
 void WriteSD(String lineString, String fileName) {
     File dataFile = SD.open(fileName,FILE_APPEND); // OPENS AND APPENDS TO THE FILE
     
+    if (digitalRead(lid) == LOW) {
+      // opened lid
+      lineString += ",\'1\'";
+   } else {
+      // closed lid
+      lineString +=  ",\'0\'";
+   }
+    
     if(dataFile){
         Serial.print("Opened file: ");
         Serial.println(fileName);
@@ -214,15 +235,15 @@ bool ReadSD(String filename) {
       //Serial.println();
       if (fileInput.length() > 30 && fileInput.length() < 50) {
         lineSentCount++;
+        delay(1000);
         SendServer(fileInput, mqtt_topic);
         Serial.print("Read and Sent: ");
         Serial.println(fileInput);
-      }
-      
-      
+      }  
    }
    dataFile.close();
    // delete file after sending
+   // try file write again, and remove (/test.txt)
    dataFile = SD.open(filename,FILE_WRITE);
    if (dataFile.available()) {
       dataFile.print("");
