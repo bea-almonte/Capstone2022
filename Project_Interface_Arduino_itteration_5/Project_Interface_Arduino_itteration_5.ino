@@ -367,7 +367,7 @@ void printVolts()
 {
   int sensorValue = analogRead(A0); //read the A0 pin value
   float voltage = (sensorValue * (5.2/ 1023.00) * 1.581395349)*2; //convert the value to a true voltage.
-  int battPerc = (voltage / 12) * 100;
+  int battPerc = (voltage / 12.6) * 100;
     // BATTERY
     if(battPerc <101){      
         myGLCD.setFont(BigFont);
