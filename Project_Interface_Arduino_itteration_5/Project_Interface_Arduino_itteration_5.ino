@@ -7,6 +7,9 @@
 #define RXp2 17
 #define TXp2 16
 
+// BUZZER
+#define buzzer 13
+
 void SendTemp(float currentTemp);
 
 //KEYPAD Setup
@@ -46,7 +49,9 @@ const long fanOffDuration = 120000;
 
 unsigned long currentMillis = 0; //
 unsigned long previousMillis = 0; //
+// BATTERY VOLTAGE
 
+float batVoltage = 0;
 
 String sensorValString;
 String setTempString;
@@ -74,6 +79,16 @@ int Relay5 = 9;                       //
 int Relay6 = 10;                      //
 int Relay7 = 47;                      //
 float setTemp = 5;                    //user defined variable default is 25 degrees celcius
+// ALARM
+bool toneOn = false;
+bool alarmOn = false;
+unsigned long currTime = 0; //
+unsigned long prevTime = 0; //
+unsigned long timeOutOfRange = 0;
+// BATTERY
+unsigned long batCurrTime = 0; //
+unsigned long batPrevTime = 0; //
+unsigned long batTimeOutOfRange = 0;
 void setup()
 {
 
@@ -123,6 +138,8 @@ void setup()
 void loop()
 {
   currentMillis = millis();
+  currTime = millis();
+  batCurrTime = millis();
   PrintHeader();
   int buf[478];
   int x, x2;
@@ -188,6 +205,9 @@ void loop()
    
    
   if ((averageTempC < (setTemp - 0.5)) && (averageTempC > (setTemp - 2))) {
+    alarmOn = true;
+    noTone(buzzer);
+    timeOutOfRange = 0;
     if (averageTempC < (setTemp - 1.5) ) {
       digitalWrite(Relay1, LOW);    // THIS TURNS OFF THE POWER TO THE COOL SETTING
       digitalWrite(Relay7, LOW);    // THIS TURNS OFF THE LID FAN
@@ -204,8 +224,27 @@ void loop()
   }
   else
   {
+    // OUT OF RANGE
+    
+    
     digitalWrite(Relay1, HIGH);    // THIS TURNS ON THE POWER TO THE COOL SETTING
     digitalWrite(Relay4, HIGH);    // THIS TURNS ON THE POWER TO THE COOL SETTING for 2/4
+  }
+
+  if (!InRange(averageTempC) || batVoltage < 10) {
+    batTimeOutOfRange += (batCurrTime - batPrevTime);
+    timeOutOfRange += (currTime - prevTime);
+    prevTime = currTime;
+    batPrevTime = batCurrTime;
+    if (((timeOutOfRange >= fanOnDuration) && alarmOn) || batTimeOutOfRange >= fanOffDuration) {
+      if (toneOn) {
+        tone(buzzer,450);
+        toneOn = !toneOn;
+      } else {
+        noTone(buzzer);
+        toneOn = !toneOn;
+      }
+    }
   }
   //delay(5000);                   // ***I DON'T THINK WE NEED A DELAY AT ALL
 }
@@ -321,11 +360,14 @@ bool InRange(float averageTempC) {
 
 
 void SendTemp(float currentTemp) {
-  String sendString = "\'1\',\'" + String(rtc.getDateStr(FORMAT_BIGENDIAN, FORMAT_LONG, '-')) + " " + String(rtc.getTimeStr(FORMAT_LONG)) + "\',\'" + String(currentTemp) + "\'";
+  String sendString = "\'1\',\'" + String(rtc.getDateStr(FORMAT_BIGENDIAN, FORMAT_LONG, '-')) + " " + String(rtc.getTimeStr(FORMAT_LONG)) + "\',\'" + String(currentTemp) + "\',\'" + String(batVoltage) + "\'";
   if (InRange(currentTemp)) {
     sendString += ",\'1\'";
+    
   } else {
     sendString += ",\'0\'";
+    
+    
   }
   //Serial.println(sendString);
   Serial2.println(sendString); //need to chamge to string w av temp, date and cooler ID (1)
@@ -346,6 +388,8 @@ void selISR() {
     myGLCD.setColor(VGA_BLACK);
     myGLCD.fillRect(0, 80, 500, 230);
     selectOn = !selectOn;
+    alarmOn = false;
+    noTone(buzzer);
   }
   pressed = trigger;
 }
@@ -366,10 +410,10 @@ void decISR() {
 void printVolts()
 {
   int sensorValue = analogRead(A0); //read the A0 pin value
-  float voltage = (sensorValue * (5.2/ 1023.00) * 1.581395349)*2; //convert the value to a true voltage.
-  int battPerc = (voltage / 12.6) * 100;
+  batVoltage = (sensorValue * (5.2/ 1023.00) * 1.581395349)*2; //convert the value to a true voltage.
+  int battPerc = (batVoltage / 12.6) * 100;
     // BATTERY
-    if(battPerc <101){      
+    /*if(battPerc <101){      
         myGLCD.setFont(BigFont);
         myGLCD.setColor(VGA_WHITE);
         myGLCD.print("Batt  Pwr: ", RIGHT, 190);
@@ -380,8 +424,19 @@ void printVolts()
       myGLCD.setFont(BigFont);
       myGLCD.setColor(VGA_WHITE);
       myGLCD.print("Shore Pwr: ", RIGHT, 190);
-      myGLCD.printNumF(voltage, 2, 350, 210);
+      myGLCD.printNumF(batVoltage, 2, 350, 210);
       myGLCD.print("V", 435, 210);      
+    }*/
+    if (batVoltage > 10.0) {
+      myGLCD.setFont(BigFont);
+      myGLCD.setColor(VGA_WHITE);
+      myGLCD.print("Battery Voltage: ", RIGHT, 190);
+      myGLCD.printNumF(batVoltage, 2, 350, 210);
+      myGLCD.print("V", 435, 210);      
+    } else {
+      myGLCD.setFont(BigFont);
+      myGLCD.setColor(VGA_WHITE);
+      myGLCD.print("CHARGE BATTERY", RIGHT, 190);   
     }
 
 }
