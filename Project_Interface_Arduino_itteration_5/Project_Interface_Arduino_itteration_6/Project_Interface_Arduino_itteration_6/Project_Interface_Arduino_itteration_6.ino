@@ -175,19 +175,24 @@ void loop()
   // ALL OFF WHEN -2 DEGREES BELOW
   // HALF OFF WHEN -0.5 DEGREES BELOW
   // ON WHEN ABOVE
-  if(digitalRead(Relay7) == LOW){
-    if(currentMillis - previousMillis >= fanOnDuration){
-      digitalWrite(Relay7,HIGH);
-      previousMillis = currentMillis;
-    }
-  }
-  if(digitalRead(Relay7) == HIGH){
-     if((currentMillis - previousMillis) >= fanOffDuration){
+
+  //LID RELAY CONTROL
+    switch (digitalRead(Relay7)) {
+    case HIGH:  // your hand is on the sensor
+      if((currentMillis - previousMillis) >= fanOffDuration){
       digitalWrite(Relay7, LOW);
       previousMillis = currentMillis;
+      }
+      break;
+    case LOW:  // your hand is close to the sensor
+      if(currentMillis - previousMillis >= fanOnDuration){
+      digitalWrite(Relay7,HIGH);
+      previousMillis = currentMillis;
+      }
+      break;
     }
-  }  
-
+    
+  // PELTIER RELAY CONTROL
   if ((averageTempC < (setTemp - 0.5))) {
     alarmOn = true;
     noTone(buzzer);
@@ -197,7 +202,7 @@ void loop()
       digitalWrite(Relay7, LOW);    // THIS TURNS OFF THE LID FAN
     }
     else {
-      if(digitalRead(Relay1)==LOW && averageTempC< (setTemp-0.2)){
+      if(digitalRead(Relay1)==LOW && averageTempC> (setTemp-1.3)){
         delay(5000);
       }
       digitalWrite(Relay1, HIGH);
@@ -206,6 +211,9 @@ void loop()
       digitalWrite(Relay4, LOW);    // THIS TURNS OFF THE POWER TO THE COOL SETTING for 2/4
     }
     else {
+      if(digitalRead(Relay4)==LOW && averageTempC> (setTemp-0.8)){
+        delay(5000);
+      }
       digitalWrite(Relay4, HIGH);
     }
   }
@@ -233,10 +241,8 @@ void loop()
   }
 
   if (!InRange(averageTempC)) {
-    //batTimeOutOfRange += (batCurrTime - batPrevTime);
     timeOutOfRange += (currTime - prevTime);
     prevTime = currTime;
-   // batPrevTime = batCurrTime;
     if ((timeOutOfRange >= fanOnDuration) && alarmOn) {
       if (toneOn) {
         tone(buzzer,450);
