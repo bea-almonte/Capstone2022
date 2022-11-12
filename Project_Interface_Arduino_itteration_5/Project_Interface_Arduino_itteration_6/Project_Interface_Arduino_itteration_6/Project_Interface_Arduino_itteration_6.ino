@@ -19,8 +19,9 @@ void SendTemp(float currentTemp);
 #define dec 3//connect decrement key to pin 12
 
 // TEMP OFFSET
-float offset1 = 0.4;
-float offset2 = 2.2;
+float offset1 = 2.2;
+float offset2 = 0.4;
+
 
 bool selectOn = false;
 //interrupt variables
@@ -153,8 +154,8 @@ void loop()
   //Get temperatures C
   sensors.requestTemperatures();
   sensorsTwo.requestTemperatures();
-  temperatureC0 = sensorsTwo.getTempCByIndex(0)-offset1;
-  temperatureC1 = sensors.getTempCByIndex(0)-offset2;
+  temperatureC0 = sensors.getTempCByIndex(0)-offset1;
+  temperatureC1 = sensorsTwo.getTempCByIndex(0)-offset2;
   averageTempC = ((temperatureC0 + temperatureC1) / 2);
 
   // ***THIS SECTION WILL BE FOR HEADINGS
@@ -175,40 +176,19 @@ void loop()
   // HALF OFF WHEN -0.5 DEGREES BELOW
   // ON WHEN ABOVE
   if(digitalRead(Relay7) == LOW){
-    // Serial.print("Relay HIGH is: ");
-    // Serial.println(digitalRead(Relay7));
-    // Serial.print("Current Millis is: ");
-    // Serial.println(currentMillis);
-    // Serial.print("Previous Millis is: ");
-    // Serial.println(previousMillis);
-    // Serial.println(" ");
     if(currentMillis - previousMillis >= fanOnDuration){
       digitalWrite(Relay7,HIGH);
-      // Serial.println();
-      // Serial.println("RELAY JUST WENT LOW");
-      // Serial.println();
       previousMillis = currentMillis;
     }
   }
   if(digitalRead(Relay7) == HIGH){
-    // Serial.print("Relay LOW is: ");
-    // Serial.println(digitalRead(Relay7));
-    // Serial.print("Current Millis is: ");
-    // Serial.println(currentMillis);
-    // Serial.print("Previous Millis is: ");
-    // Serial.println(previousMillis);
-    // Serial.println(" ");
      if((currentMillis - previousMillis) >= fanOffDuration){
       digitalWrite(Relay7, LOW);
-      //       Serial.println();
-      // Serial.println("RELAY JUST WENT high");
-      // Serial.println();
       previousMillis = currentMillis;
     }
   }  
-   
-   
-  if ((averageTempC < (setTemp - 0.5)) && (averageTempC > (setTemp - 5))) {
+
+  if ((averageTempC < (setTemp - 0.5))) {
     alarmOn = true;
     noTone(buzzer);
     timeOutOfRange = 0;
@@ -217,6 +197,9 @@ void loop()
       digitalWrite(Relay7, LOW);    // THIS TURNS OFF THE LID FAN
     }
     else {
+      if(digitalRead(Relay1)==LOW && averageTempC< (setTemp-0.2)){
+        delay(5000);
+      }
       digitalWrite(Relay1, HIGH);
     }
     if (averageTempC < (setTemp - 1) ) {
@@ -229,27 +212,25 @@ void loop()
   else
   {
     // OUT OF RANGE
-    
-    
     digitalWrite(Relay1, HIGH);    // THIS TURNS ON THE POWER TO THE COOL SETTING
     digitalWrite(Relay4, HIGH);    // THIS TURNS ON THE POWER TO THE COOL SETTING for 2/4
   }
 
-  // if (!InRange(averageTempC) || batVoltage < 10) {
-  //   batTimeOutOfRange += (batCurrTime - batPrevTime);
-  //   timeOutOfRange += (currTime - prevTime);
-  //   prevTime = currTime;
-  //   batPrevTime = batCurrTime;
-  //   if (((timeOutOfRange >= fanOnDuration) && alarmOn) || batTimeOutOfRange >= fanOffDuration) {
-  //     if (toneOn) {
-  //       tone(buzzer,450);
-  //       toneOn = !toneOn;
-  //     } else {
-  //       noTone(buzzer);
-  //       toneOn = !toneOn;
-  //     }
-  //   }
-  // }
+  if (batVoltage < 10) {
+    batTimeOutOfRange += (batCurrTime - batPrevTime);
+    batPrevTime = batCurrTime;
+    if (batTimeOutOfRange >= fanOffDuration) {
+      if (toneOn) {
+        tone(buzzer,450);
+        toneOn = !toneOn;
+      } 
+      else 
+      {
+        noTone(buzzer);
+        toneOn = !toneOn;
+      }
+    }
+  }
 
   if (!InRange(averageTempC)) {
     //batTimeOutOfRange += (batCurrTime - batPrevTime);
@@ -266,13 +247,9 @@ void loop()
       }
     }
   }
-
-  //delay(5000);                   // ***I DON'T THINK WE NEED A DELAY AT ALL
 }
 
 void PrintChangeTemp() {
-
-
   //PrintHeader();
   if (setTemp < 10) {
     myGLCD.setColor(VGA_BLACK);
@@ -350,8 +327,8 @@ void CheckRange(float averageTempC) {
 
 void DisplayBothTemps() {
   //***Display sensor values for testing***//
-  float test0 = sensorsTwo.getTempCByIndex(0);
-  float test1 = sensors.getTempCByIndex(0);
+  float test0 = sensors.getTempCByIndex(0)-offset1;
+  float test1 = sensorsTwo.getTempCByIndex(0)-offset2;
   //float batteryTemp = 5.0;
 
   myGLCD.setFont(BigFont);
